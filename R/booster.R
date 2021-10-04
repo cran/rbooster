@@ -1,0 +1,272 @@
+#' @title  AdaBoost Framework for Any Classifier
+#'
+#' @description This function allows you to use any classifier to be used in
+#' Discrete AdaBoost
+#' framework.
+#'
+#' @param x_train feature matrix. Class depends on the classifier implemented.
+#' @param y_train a factor class variable. Boosting algorithm allows for
+#' k >= 2. However, not all classifiers are capable of multiclass
+#' classification.
+#' @param classifier pre-ready or a custom classifier function. Pre-ready
+#' classifiers are "rpart", "glm", "nb", "earth".
+#' @param predicter prediction function for classifier. It's output must be a
+#' factor
+#' variable with the same levels of y_train
+#' @param x_test optional test feature matrix. Can be used instead of predict
+#' function. print_detail and print_plot gives information about test.
+#' @param y_test optional a factor test class variable with the same levels as
+#' y_train. Can be used instead of predict function. print_detail and print_plot
+#' gives information about test.
+#' @param weighted_bootstrap If classifier does not support case weights,
+#' weighted_bootstrap must be TRUE used for weighting. If classifier supports
+#' weights, it must be FALSE. default is FALSE.
+#' @param max_iter maximum number of iterations. Default to 30. Probably should
+#' be higher for classifiers other than decision tree.
+#' @param lambda a parameter for alpha weights. Should be a small
+#' value for fast fitting classifiers. Can be chosen high for slow fitting
+#' classifiers. Default to 1, which has no effect.
+#' @param print_detail a logical for printing errors for each iteration.
+#' Default to TRUE
+#' @param print_plot a logical for plotting errors. Default to FALSE.
+#' @param bag_frac a value between 0 and 1. It represents the proportion of
+#' cases to be used in each iteration. Smaller datasets may be better to create
+#' weaker classifiers. 1 means all cases. Default to 0.5.
+#' @param ... extra control for classifier and predicter functions.
+#' weak classifiers.
+#'
+#' @details
+#' \code{booster} can only use Discrete AdaBoost algorithm for now. It is
+#' capable of multiclass classification using SAMME algorithm.
+#'
+#' Pre-ready classifiers are "rpart", "glm", "nb", "earth", which means
+#' CART, logistic regression, naive bayes and MARS classifier respectively.
+#' \code{predicter} is valid only if a custom \code{classifier} function is
+#' given. A custom classifier funtion should be as \code{function(x_train, y_train,
+#' weights, ...)} and its output is a model object which can be placed in
+#' \code{predicter}. \code{predicter} function is \code{function(model, x_new,
+#' ...)} and its output must be a vector of class predictions. See
+#' \code{vignette("booster", package = "booster")} for examples.
+#'
+#' \code{lambda} is a multiplier of model weights, alpha,
+#' alpha_i=lambda x 0.5 x log((1-err_i)/err_i).
+#'
+#' \code{weighted_bootstrap} is for bootstrap sampling in each step. If the
+#' classifier accepts weights then it is better to turn it off. If classifier
+#' does not accept case weights, then weighted bootstrap will make it into
+#' weighted classifier. Learning may be slower this way.
+#'
+#' \code{bag_frac} helps a classifier to be "weaker" by reducing sample
+#' size. Stronger classifiers may require lower proportions of \code{bag_frac}.
+#'
+#' @return a booster object with below components.
+#'  \item{n_train}{Number of cases in the input dataset.}
+#'  \item{w}{Case weights for the final boost.}
+#'  \item{p}{Number of features.}
+#'  \item{weighted_bootstrap}{TRUE if weighted bootstrap applied. Otherwise FALSE.}
+#'  \item{max_iter}{Maximum number of boosting steps.}
+#'  \item{lambda}{The multiplier of model weights.}
+#'  \item{predicter}{Function for prediction}
+#'  \item{alpha}{Model weights.}
+#'  \item{err_train}{A vector of train errors in each step of boosting.}
+#'  \item{err_test}{A vector of test errors in each step of boosting. If there are
+#'  no test data, it returns NULL}
+#'  \item{models}{Models obtained in each boosting step}
+#'  \item{x_classes}{A list of datasets, which are \code{x_train} separated for
+#'  each class.}
+#'  \item{n_classes}{Number of cases for each class in input dataset.}
+#'  \item{k_classes}{Number of classes in class variable.}
+#'  \item{bag_frac}{Proportion of input dataset used in each boosting step.}
+#'  \item{class_names}{Names of classes in class variable.}
+#'
+#' @author Fatih Saglam, fatih.saglam@omu.edu.tr
+#'
+#' @importFrom stats predict
+#'
+#' @examples
+#' #To see examples, please run vignette("booster", package = "rbooster")
+#'
+#' @references
+#' Freund, Y., & Schapire, R. E. (1997). A decision-theoretic generalization of
+#' on-line learning and an application to boosting. Journal of computer and
+#' system sciences, 55(1), 119-139.
+#'
+#' Hastie, T., Rosset, S., Zhu, J., & Zou, H. (2009). Multi-class AdaBoost.
+#' Statistics and its Interface, 2(3), 349-360.
+#'
+#' @export
+
+booster <- function(x_train,
+                    y_train,
+                    classifier = NULL,
+                    predicter = NULL,
+                    x_test = NULL,
+                    y_test = NULL,
+                    weighted_bootstrap = FALSE,
+                    max_iter = 30,
+                    lambda = 1,
+                    print_detail = TRUE,
+                    print_plot = FALSE,
+                    bag_frac = 0.5,
+                    ...) {
+
+  n_train <- nrow(x_train)
+  p <- ncol(x_train)
+
+  class_names <- unique(y_train)
+  k_classes <- length(class_names)
+
+  n_classes <- sapply(class_names, function(m) sum(y_train == m))
+  x_classes <- lapply(class_names, function(m) x_train[y_train == m,])
+
+  if (k_classes > 2 & !is.function(classifier)) {
+    if (classifier == "glm") {
+      stop("glm does not allow for multiclass classification")
+    }
+  }
+
+  if ((is.null(classifier))) {
+    classifier == "rpart"
+  }
+
+  if (is.character(classifier)) {
+    txt <- classifier
+    classifier <- get(paste0("classifier_", txt), pos = 2)
+    predicter <- get(paste0("predicter_", txt), pos = 2)
+  }
+
+  n_selected <- floor((1 - bag_frac) * n_train)
+  if (weighted_bootstrap) {
+    sampler <- function(w) {
+      forced_i <- c(sapply(1:k_classes,
+                           function(m) sample(which(y_train == class_names[m]),
+                                              2)))
+      return(c(sample(x = setdiff(1:n_train, forced_i),
+                      size = 0.632*n_train - k_classes,
+                      replace = TRUE,
+                      prob = w[setdiff(1:n_train, forced_i)]),
+               forced_i))
+    }
+  } else {
+    sampler <- function(w) {
+      forced_i <- c(sapply(1:k_classes,
+                           function(m) sample(which(y_train == class_names[m]),
+                                              2)))
+      return(c(sample(x = setdiff(1:n_train, forced_i),
+                      size = n_train - n_selected - 2*k_classes,
+                      replace = FALSE),
+               forced_i))
+    }
+  }
+
+  w <- rep(1/n_train, n_train)
+  err <- c()
+  err_train <- c()
+  alpha <- c()
+  models <- list()
+
+  fit_train <- matrix(0, nrow = n_train, ncol = k_classes)
+  if (!is.null(x_test) & !is.null(y_test)) {
+    n_test <- nrow(x_test)
+    err_test <- c()
+    fit_test <- matrix(0, nrow = n_test, ncol = k_classes)
+  }
+
+  for (i in 1:max_iter) {
+    selection_i <- sampler(w)
+
+    x_temp <- x_train[selection_i,]
+    y_temp <- y_train[selection_i]
+    w_temp <- w[selection_i]
+    n_temp <- nrow(x_temp)
+
+    models[[i]] <- classifier(x_temp, y_temp, w_temp*n_temp/sum(w_temp))
+    preds <- predicter(models[[i]], x_train)
+
+    err[i] <- sum(w*(preds != y_train))/sum(w)
+    if ((1 - err[i]) == 1 | err[i] == 1) {
+      err[i] <- (1 - err[i]) * 1e-04 + err[i] * 0.9999
+    }
+
+    alpha[i] <- lambda * 0.5 * log((1 - err[i])/err[i]) +
+      log(k_classes - 1)
+    preds_num <- (sapply(class_names, function(m) as.numeric(preds == m)))
+
+    fit_train <- fit_train + alpha[i]*preds_num
+    fit_train_pred <- class_names[apply(fit_train, 1, which.max)]
+
+    w <- w*exp(alpha[i]*(preds != y_train))
+    w <- w/sum(w)
+
+    err_train[i] <- sum(fit_train_pred != y_train)/n_train
+
+    if ((is.null(x_test) | is.null(y_test)) & print_detail) {
+      cat(i, " Train err:",
+          formatC(err_train[i], digits = 5, format = "f"),
+          ", Weighted err:",
+          formatC(err[i], digits = 5, format = "f"),
+          "\n",
+          sep = "")
+      next
+    }
+
+    preds <- predicter(models[[i]], x_test)
+    preds_num <- (sapply(class_names, function(m) as.numeric(preds == m)))
+    fit_test <- fit_test + alpha[i]*preds_num
+    fit_test_pred <- class_names[apply(fit_test, 1, which.max)]
+    err_test[i] <- sum(fit_test_pred != y_test)/n_test
+
+    if (print_detail) {
+      cat(i, " Train err:",
+          formatC(err_train[i], digits = 5, format = "f"),
+          ", Test err:",
+          formatC(err_test[i], digits = 5, format = "f"),
+          ", Weighted err:",
+          formatC(err[i], digits = 5, format = "f"),
+          "\n", sep = "")
+    }
+  }
+
+  if (print_plot) {
+    if (!is.null(x_test) & !is.null(y_test)) {
+      plot(err_train, xlab = "Iteration", ylab = "Error",
+           ylim = c(0, max(c(err_train, err_test)))*1.1)
+      graphics::lines(err_train)
+      graphics::points(err_test, col = "red", pch = 2)
+      graphics::lines(err_test, col = "red")
+      graphics::legend("topright", legend = c("Train", "Test"), lty = c(1,1),
+                       col = c("black", "red"), pch = c(1,2))
+    } else {
+      plot(err_train, xlab = "Iteration", ylab = "Error",
+           ylim = c(min(c(err_train)), max(c(err_train))))
+      graphics::lines(err_train)
+      graphics::legend("topright", legend = c("Train"), lty = c(1),
+                       col = c("black"),
+                       pch = c(1))
+    }
+  }
+
+  if (is.null(x_test)) {
+    err_test <- NULL
+  }
+
+  results <- structure(list(n_train = n_train,
+                            w = w,
+                            p = p,
+                            weighted_bootstrap = weighted_bootstrap,
+                            max_iter = max_iter,
+                            lambda = lambda,
+                            predicter = predicter,
+                            alpha = alpha,
+                            err_train = err_train,
+                            err_test = err_test,
+                            models = models,
+                            x_classes = x_classes,
+                            n_classes = n_classes,
+                            k_classes = k_classes,
+                            bag_frac = bag_frac,
+                            class_names = class_names), class = "booster")
+
+  return(results)
+}
+
