@@ -2,9 +2,15 @@
 % Please edit documentation in R/predict.booster.R
 \name{predict.booster}
 \alias{predict.booster}
+\alias{predict.discrete_adaboost}
+\alias{predict.real_adaboost}
 \title{Prediction function for Adaboost framework}
 \usage{
 \method{predict}{booster}(object, newdata, type = "pred", print_detail = FALSE, ...)
+
+\method{predict}{discrete_adaboost}(object, newdata, type = "pred", print_detail = FALSE, ...)
+
+\method{predict}{real_adaboost}(object, newdata, type = "pred", print_detail = FALSE, ...)
 }
 \arguments{
 \item{object}{booster object}
@@ -12,6 +18,10 @@
 \item{newdata}{a factor class variable. Boosting algorithm allows for}
 
 \item{type}{pre-ready or a custom classifier function.}
+
+\item{print_detail}{prints the prediction process. Default is \code{FALSE}.}
+
+\item{...}{additional arguments.}
 }
 \value{
 A vector of class predictions or a matrix of class probabilities
@@ -21,9 +31,9 @@ depending of \code{type}
 Makes predictions based on booster function
 }
 \details{
-Discrete Adaboost does not estimate class probabilities but here, "prob"
-gives class probabilities. Probabilities are calculated using sum
-of weighted class votes, that is votes/sum(votes). It has no theoretical
-background. Use it on your own risk.
+Type "pred" will give class predictions. "prob" will give probabilities for
+each class.
 }
-\keyword{internal}
+\seealso{
+[predict()]
+}

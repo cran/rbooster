@@ -2,12 +2,20 @@
 % Please edit documentation in R/print.booster.R
 \name{print.booster}
 \alias{print.booster}
+\alias{print.discrete_adaboost}
+\alias{print.real_adaboost}
 \title{Print booster}
 \usage{
 \method{print}{booster}(x, ...)
+
+\method{print}{discrete_adaboost}(x, ...)
+
+\method{print}{real_adaboost}(x, ...)
 }
 \arguments{
 \item{x}{booster object}
+
+\item{...}{additional arguments.}
 }
 \value{
 Summary of "booster" object.

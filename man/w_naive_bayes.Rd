@@ -2,21 +2,31 @@
 % Please edit documentation in R/w_naive_bayes.R
 \name{w_naive_bayes}
 \alias{w_naive_bayes}
+\alias{w_gaussian_naive_bayes}
+\alias{w_discrete_naive_bayes}
 \title{Naive Bayes algorithm with case weights}
 \usage{
-w_naive_bayes(x_train, y_train, w = NULL)
+w_naive_bayes(x_train, y_train, w = NULL, discretize = TRUE, breaks = 3)
+
+w_gaussian_naive_bayes(x_train, y_train, w = NULL)
+
+w_discrete_naive_bayes(x_train, y_train, breaks = 3, w = NULL)
 }
 \arguments{
-\item{x_train}{features.}
+\item{x_train}{explanatory variables.}
 
 \item{y_train}{a factor class variable.}
 
 \item{w}{a vector of case weights.}
+
+\item{discretize}{If \code{TRUE} numerical variables are discretized and discrete naive bayes is applied,}
+
+\item{breaks}{number of break points for discretization. Ignored if \code{discretize = TRUE}.}
 }
 \value{
-a w_naive_bayes object with below components.
+a \code{w_naive_bayes} object with below components.
  \item{n_train}{Number of cases in the input dataset.}
- \item{p}{Number of features.}
+ \item{p}{Number of explanatory variables.}
  \item{x_classes}{A list of datasets, which are \code{x_train} separated
  for each class.}
  \item{n_classes}{Number of cases for each class in input dataset.}
@@ -25,36 +35,130 @@ a w_naive_bayes object with below components.
  \item{class_names}{Names of classes in class variable.}
  \item{means}{Weighted mean estimations for each variable.}
  \item{stds}{Weighted standart deviation estimations for each variable.}
+ \item{categories}{Labels for discretized variables.}
+ \item{boundaries}{Upper and lower boundaries for discretization.}
+ \item{ps}{probabilities for each variable categories.}
 }
 \description{
-Function for Naive Bayes algorithm classification.
+Function for Naive Bayes algorithm classification with case weights.
 }
 \details{
-It uses Gaussian densities with case weights and allows
+\code{w_naive_bayes} calls \code{w_gaussian_naive_bayes} or \code{w_discrete_naive_bayes}.
+
+if \code{discrete = FALSE}, \code{w_gaussian_naive_bayes} is called. It uses Gaussian densities with case weights and allows
 multiclass classification.
+
+if \code{discrete = TRUE}, \code{w_discrete_naive_bayes} is called. It uses conditional probabilities for each category with
+laplace smoothing and allows multiclass classification.
 }
 \examples{
 
-x <- iris[,1:4]
-y <- iris[,5]
+library(rbooster)
+## short functions for cross-validation and data simulation
+cv_sampler <- function(y, train_proportion) {
+ unlist(lapply(unique(y), function(m) sample(which(y==m), round(sum(y==m))*train_proportion)))
+}
 
-# Without weights
-m <- w_naive_bayes(x_train = x, y_train = y)
-preds <- predict(object = m, newdata = x, type = "pred")
-table(y, preds)
+data_simulation <- function(n, p, k, train_proportion){
+ means <- seq(0, k*1.5, length.out = k)
+ x <- do.call(rbind, lapply(means,
+                            function(m) matrix(data = rnorm(n = round(n/k)*p,
+                                                            mean = m,
+                                                            sd = 2),
+                                               nrow = round(n/k))))
+ y <- factor(rep(letters[1:k], each = round(n/k)))
+ train_i <- cv_sampler(y, train_proportion)
 
-# Using weights
-weights <- ifelse(y == "setosa" | y == "versicolor", 1, 0.01)
+ data <- data.frame(x, y = y)
+ data_train <- data[train_i,]
+ data_test <- data[-train_i,]
+ return(list(data = data,
+             data_train = data_train,
+             data_test = data_test))
+}
 
-m <- w_naive_bayes(x_train = x, y_train = y, w = weights)
-preds <- predict(object = m, newdata = x, type = "pred")
-table(y, preds)
+### binary classification example
+n <- 500
+p <- 10
+k <- 2
+dat <- data_simulation(n = n, p = p, k = k, train_proportion = 0.8)
+x <- dat$data[,1:p]
+y <- dat$data[,p+1]
 
-# Using weights example 2
-weights <- ifelse(y == "setosa" | y == "virginica", 1, 0.01)
+x_train <- dat$data_train[,1:p]
+y_train <- dat$data_train[,p+1]
 
-m <- w_naive_bayes(x_train = x, y_train = y, w = weights)
-preds <- predict(object = m, newdata = x, type = "pred")
-table(y, preds)
+x_test <- dat$data_test[,1:p]
+y_test <- dat$data_test[,p+1]
+
+## discretized Naive Bayes classification
+mm1 <- w_naive_bayes(x_train = x_train, y_train = y_train, discretize = TRUE, breaks = 4)
+preds1 <- predict(object = mm1, newdata = x_test, type = "pred")
+table(y_test, preds1)
+# or
+mm2 <- w_discrete_naive_bayes(x_train = x_train, y_train = y_train, breaks = 4)
+preds2 <- predict(object = mm2, newdata = x_test, type = "pred")
+table(y_test, preds2)
+
+## Gaussian Naive Bayes classification
+mm3 <- w_naive_bayes(x_train = x_train, y_train = y_train, discretize = FALSE)
+preds3 <- predict(object = mm3, newdata = x_test, type = "pred")
+table(y_test, preds3)
+
+#or
+mm4 <- w_gaussian_naive_bayes(x_train = x_train, y_train = y_train)
+preds4 <- predict(object = mm4, newdata = x_test, type = "pred")
+table(y_test, preds4)
+
+## multiclass example
+n <- 500
+p <- 10
+k <- 5
+dat <- data_simulation(n = n, p = p, k = k, train_proportion = 0.8)
+x <- dat$data[,1:p]
+y <- dat$data[,p+1]
+
+x_train <- dat$data_train[,1:p]
+y_train <- dat$data_train[,p+1]
+
+x_test <- dat$data_test[,1:p]
+y_test <- dat$data_test[,p+1]
+
+# discretized
+mm5 <- w_discrete_naive_bayes(x_train = x_train, y_train = y_train, breaks = 4)
+preds5 <- predict(object = mm5, newdata = x_test, type = "pred")
+table(y_test, preds5)
+
+# gaussian
+mm6 <- w_gaussian_naive_bayes(x_train = x_train, y_train = y_train)
+preds6 <- predict(object = mm6, newdata = x_test, type = "pred")
+table(y_test, preds6)
+
+## example for case weights
+n <- 500
+p <- 10
+k <- 5
+dat <- data_simulation(n = n, p = p, k = k, train_proportion = 0.8)
+x <- dat$data[,1:p]
+y <- dat$data[,p+1]
+
+x_train <- dat$data_train[,1:p]
+y_train <- dat$data_train[,p+1]
+
+# discretized
+weights <- ifelse(y_train == "a" | y_train == "c", 1, 0.01)
+
+mm7 <- w_discrete_naive_bayes(x_train = x_train, y_train = y_train, breaks = 4, w = weights)
+
+preds7 <- predict(object = mm7, newdata = x_test, type = "pred")
+table(y_test, preds7)
+
+# gaussian
+weights <- ifelse(y_train == "b" | y_train == "d", 1, 0.01)
+
+mm8 <- w_gaussian_naive_bayes(x_train = x_train, y_train = y_train, w = weights)
+
+preds8 <- predict(object = mm8, newdata = x_test, type = "pred")
+table(y_test, preds8)
 
 }

@@ -2,16 +2,24 @@
 % Please edit documentation in R/predict.w_naive_bayes.R
 \name{predict.w_naive_bayes}
 \alias{predict.w_naive_bayes}
-\title{Naive Bayes algorithm with case weights}
+\alias{predict.w_discrete_naive_bayes}
+\alias{predict.w_gaussian_naive_bayes}
+\title{Predict Discrete Naive Bayes}
 \usage{
 \method{predict}{w_naive_bayes}(object, newdata = NULL, type = "prob", ...)
+
+\method{predict}{w_discrete_naive_bayes}(object, newdata, type = "prob", ...)
+
+\method{predict}{w_gaussian_naive_bayes}(object, newdata = NULL, type = "prob", ...)
 }
 \arguments{
-\item{object}{"naive_bayes" class object from naive_bayes function.}
+\item{object}{"w_bayes" class object..}
 
 \item{newdata}{new observations which predictions will be made on.}
 
 \item{type}{"pred" or "prob".}
+
+\item{...}{additional arguments.}
 }
 \value{
 A vector of class predictions or a matrix of class probabilities
@@ -21,33 +29,12 @@ depending of \code{type}
 Function for Naive Bayes algorithm prediction.
 }
 \details{
+Calls \code{predict.w_discrete_naive_bayes} or \code{predict.w_gaussian_naive_bayes}
+accordingly
+
 Type "pred" will give class predictions. "prob" will give probabilities for
 each class.
 }
-\examples{
-data(iris)
-
-x <- iris[,1:4]
-y <- iris[,5]
-
-# Without weights
-m <- w_naive_bayes(x_train = x, y_train = y)
-preds <- predict(object = m, newdata = x, type = "pred")
-table(y, preds)
-
-# Using weights
-weights <- ifelse(y == "setosa" | y == "versicolor", 1, 0.01)
-
-m <- w_naive_bayes(x_train = x, y_train = y, w = weights)
-preds <- predict(object = m, newdata = x, type = "pred")
-table(y, preds)
-
-# Using weights example 2
-weights <- ifelse(y == "setosa" | y == "virginica", 1, 0.01)
-
-m <- w_naive_bayes(x_train = x, y_train = y, w = weights)
-preds <- predict(object = m, newdata = x, type = "pred")
-table(y, preds)
-
+\seealso{
+[predict()], [rbooster::predict.w_discrete_naive_bayes()], [rbooster::predict.w_gaussian_naive_bayes()]
 }
-\keyword{internal}

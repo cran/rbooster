@@ -2,30 +2,36 @@
 % Please edit documentation in R/functions.R
 \name{classifier_rpart}
 \alias{classifier_rpart}
-\alias{predicter_rpart}
+\alias{predictor_rpart}
 \alias{classifier_glm}
-\alias{predicter_glm}
-\alias{classifier_nb}
-\alias{predicter_nb}
+\alias{predictor_glm}
+\alias{classifier_gnb}
+\alias{predictor_gnb}
+\alias{classifier_dnb}
+\alias{predictor_dnb}
 \alias{classifier_earth}
-\alias{predicter_earth}
+\alias{predictor_earth}
 \title{Functions to be used internally}
 \usage{
 classifier_rpart(x_train, y_train, weights, ...)
 
-predicter_rpart(model, x_new, ...)
+predictor_rpart(model, x_new, type = "pred", ...)
 
 classifier_glm(x_train, y_train, weights, ...)
 
-predicter_glm(model, x_new, ...)
+predictor_glm(model, x_new, type = "pred", ...)
 
-classifier_nb(x_train, y_train, weights, ...)
+classifier_gnb(x_train, y_train, weights, ...)
 
-predicter_nb(model, x_new, ...)
+predictor_gnb(model, x_new, type = "pred", ...)
+
+classifier_dnb(x_train, y_train, weights, ...)
+
+predictor_dnb(model, x_new, type = "pred", ...)
 
 classifier_earth(x_train, y_train, weights, ...)
 
-predicter_earth(model, x_new, ...)
+predictor_earth(model, x_new, type = "pred", ...)
 }
 \arguments{
 \item{x_train}{input features.}
@@ -42,7 +48,7 @@ predicter_earth(model, x_new, ...)
 }
 \value{
 Classifiers produce an object which is appropriate
-for respective predicter. Predicters returns class
+for respective predictor. Predictors returns class
 predictions for \code{x_new}.
 }
 \description{

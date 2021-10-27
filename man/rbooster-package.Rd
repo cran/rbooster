@@ -6,10 +6,13 @@
 \alias{rbooster-package}
 \title{rbooster: AdaBoost Framework for Any Classifier}
 \description{
-This is a simple package which provides a function 
-      that boosts pre-ready or custom-made classifiers. Package 
-      uses Discrete AdaBoost (<doi:10.1006/jcss.1997.1504>) for two class, 
-      SAMME (<doi:10.4310/SII.2009.v2.n3.a8>) for multiclass classification.
+This is a simple package which provides a function
+      that boosts pre-ready or custom-made classifiers. Package
+      uses Discrete AdaBoost (<doi:10.1006/jcss.1997.1504>) and Real AdaBoost
+      (<doi:10.1214/aos/1016218223>) for two class,
+      SAMME (<doi:10.4310/SII.2009.v2.n3.a8>) and
+      SAMME.R (<doi:10.4310/SII.2009.v2.n3.a8>)
+      for multiclass classification.
 }
 \author{
 \strong{Maintainer}: Fatih Saglam \email{fatih.saglam@omu.edu.tr} (\href{https://orcid.org/0000-0002-2084-2008}{ORCID})
